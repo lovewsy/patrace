@@ -15,7 +15,7 @@ WARNING = '\033[93m'
 WARNRED = '\033[31m'
 ENDC = '\033[0m'
 
-ANDROID_TARGET = 'android-23'
+ANDROID_TARGET = 'android-29'
 
 SUCCESS = 0
 ERROR = 1

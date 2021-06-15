@@ -25,7 +25,9 @@
 #include <condition_variable>
 #include <unordered_map>
 #include <mutex>
-
+#ifdef ANDROID
+#include "helper/gputimer.hpp"
+#endif
 #ifdef __APPLE__
 #include "TargetConditionals.h"
 #endif
@@ -135,6 +137,19 @@ public:
     std::unordered_map<int, int> thread_remapping;
     std::atomic_int latest_call_tid;
     std::mutex mConditionMutex;
+
+#ifdef ANDROID
+    GpuTimer gpuTimer;
+    std::atomic<int> mProgramCounter;
+    unsigned mDispatchFrameNo = 0;
+    unsigned beginMeasureFrame;
+    unsigned endMeasureFrame;
+    std::atomic<bool> mCountShader;
+    std::unordered_map<int, int> shader_statistics;        // <programCounter, shader_used_count>
+    std::map<unsigned int ,  int> shader_map; // <old_ret, programCounter>
+    //std::map<int, ShaderFrameDrawCallRecord> draw_statistics;
+    std::vector<std::vector<float>> shader_draw_time_statistics;
+#endif
 
 private:
     bool loadRetraceOptionsByThreadId(int tid);

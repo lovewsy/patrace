@@ -4,8 +4,8 @@ import argparse
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-import specs.stdapi as stdapi
 import specs.gles12api as gles12api
+import specs.stdapi as stdapi
 
 notSupportedFuncs = set([
     'glVertexAttrib1fv',
@@ -50,7 +50,8 @@ shadercache_funcs = [
 ]
 
 # Filled out in main()
-reverse_lookup_maps = set(["program", "shader" ,"pipeline", "texture", "buffer"])
+reverse_lookup_maps = set(
+    ["program", "shader", "pipeline", "texture", "buffer"])
 
 maps_with_getters = [
     'texture',
@@ -118,15 +119,15 @@ class DeserializeVisitor(stdapi.Visitor):
     def visitLiteral(self, literal, arg, name, func):
         print '    %s %s; // literal' % (literal, name)
         print '    _src = ReadFixed<%s>(_src, %s);' % (literal, name)
-        #if literal.expr == 'float':
+        # if literal.expr == 'float':
         #    print '    DBG_LOG("%%f", %s);' % name
-        #else:
+        # else:
         #    print '    DBG_LOG("%%d", %s);' % name
 
     def visitString(self, string, arg, name, func):
         print '    char* %s; // string' % (name)
         print '    _src = ReadString(_src, %s);' % (name)
-        #print '    DBG_LOG("%%s", %s);' % name
+        # print '    DBG_LOG("%%s", %s);' % name
 
     def visitConst(self, const, arg, name, func):
         self.visit(const.type, arg, name, func)
@@ -139,13 +140,13 @@ class DeserializeVisitor(stdapi.Visitor):
         if isString(array.type):
             print '    Array<const char*> %s; // string array' % (name)
             print '    _src = ReadStringArray(_src, %s);' % (name)
-            #print '    for (unsigned int i = 0; i < %s.cnt; ++i)' % (name)
-            #print '        DBG_LOG("%%s", %s.v[i]);' % (name)
+            # print '    for (unsigned int i = 0; i < %s.cnt; ++i)' % (name)
+            # print '        DBG_LOG("%%s", %s.v[i]);' % (name)
         else:
             print '    Array<%s> %s; // array' % (eleSerialType, name)
             print '    _src = Read1DArray(_src, %s);' % (name)
-            #print '    for (unsigned int i = 0; i < %s.cnt; ++i)' % (name)
-            #print '        DBG_LOG("%%f", %s.v[i]);' % (name)
+            # print '    for (unsigned int i = 0; i < %s.cnt; ++i)' % (name)
+            # print '        DBG_LOG("%%f", %s.v[i]);' % (name)
 
     def visitBlob(self, blob, arg, name, func, indent=4):
         print ' ' * indent + 'Array<char> %s; // blob' % (name)
@@ -155,7 +156,7 @@ class DeserializeVisitor(stdapi.Visitor):
         print '    int %s; // enum' % (name)
         print '    _src = ReadFixed(_src, %s);' % (name)
         if ((func.name in stdapi.compressed_texture_function_names and name == 'internalformat') or
-	    (func.name in stdapi.compressed_sub_texture_function_names and name == 'format')):
+                (func.name in stdapi.compressed_sub_texture_function_names and name == 'format')):
             print '#ifdef __APPLE__'
             print '    // Since we\'re only supporting Apple devices with GLES3'
             print '    // (which implies ETC2 support), we take advantage of ETC2\'s'
@@ -165,7 +166,8 @@ class DeserializeVisitor(stdapi.Visitor):
             print '        %s = GL_COMPRESSED_RGB8_ETC2;' % (name)
             print '    }'
             print '#endif'
-        #print '    DBG_LOG("%%d", %s);' % name
+        # print '    DBG_LOG("%%d", %s);' % name
+
     def visitBitmask(self, bitmask, arg, name, func):
         self.visit(bitmask.type, arg, name, func)
 
@@ -424,6 +426,7 @@ class LookUpHandleVisitor(stdapi.Visitor):
     def visitPolymorphic(self, polymorphic, arg, lvalue, rvalue):
         print '    #error'
 
+
 class RegisterHandleVisitor(stdapi.Visitor):
     def __init__(self):
         self.inLoop = False
@@ -510,13 +513,13 @@ class Retracer(object):
     def deserialize(self, func):
         print '    // ------------- deserialize --------------'
         print '    // ------- params & ret definition --------'
-        #if func.type is stdapi.Void:
+        # if func.type is stdapi.Void:
         #    print '    unsigned int retSkip;'
-        #else:
+        # else:
         #    print "    %s ret;" % (func.type.mutable())
         for arg in func.args:
             #arg_type = arg.type.mutable()
-            #print '    %s %s;' % (arg_type, arg.name)
+            # print '    %s %s;' % (arg_type, arg.name)
             arg.has_new_value = False
 
             if arg.output:
@@ -761,6 +764,15 @@ class Retracer(object):
             print '    }'
         if is_draw_array or is_draw_elements or func.name == 'glClear':
             print '    pre_glDraw();'
+        if is_draw_array or is_draw_elements:
+            print '#ifdef ANDROID'
+            print'     if(gRetracer.mCountShader)'
+            print'     {'
+            print'          unsigned int programNew = gRetracer.getCurrentContext()._current_program;'
+            print'          unsigned int old_ret =  gRetracer.getCurrentContext().getProgramRevMap().LValue(programNew);'
+            print'          gRetracer.shader_statistics[gRetracer.shader_map[old_ret]]++;'
+            print'     }'
+            print '#endif'
 
         # sum up the data size of VBO, texture and client-side buffer
         if func.name == 'glBufferData' or func.name == 'glBufferSubData':
@@ -916,11 +928,39 @@ class Retracer(object):
         elif func.type is not stdapi.Void:
             print '    %sret = %s(%s);' % (indent, func.name, arg_names)
         else:
-            print '    %s%s(%s);' % (indent, func.name, arg_names)
+            is_draw_array = func.name in stdapi.draw_array_function_names
+            is_draw_elements = func.name in stdapi.draw_elements_function_names
+            if is_draw_array or is_draw_elements:
+                print '#ifdef ANDROID'
+                print'     if(gRetracer.mCountShader && gRetracer.mDispatchFrameNo >= gRetracer.beginMeasureFrame)'
+                print'     {'
+                print'          unsigned int programNew = gRetracer.getCurrentContext()._current_program;'
+                print'          unsigned int old_ret =  gRetracer.getCurrentContext().getProgramRevMap().LValue(programNew);'
+                print'          gRetracer.gpuTimer.Begin(gRetracer.shader_map[old_ret]);'
+                print '        %s%s(%s);' % (indent, func.name, arg_names)
+                print'          gRetracer.gpuTimer.End();'
+                print'     }'
+                print '    else'
+                print '        %s%s(%s);' % (indent, func.name, arg_names)
+                print '#else'
+                print '    %s%s(%s);' % (indent, func.name, arg_names)
+                print '#endif'
+            else:
+                print '    %s%s(%s);' % (indent, func.name, arg_names)
 
         if func.name in ['glViewport', 'glScissor']:
             print '    }'
 
+        if func.name == 'glCreateProgram':
+            print '#ifdef ANDROID'
+            print'     if(gRetracer.mCountShader)'
+            print'     {'
+            print'          gRetracer.shader_statistics[gRetracer.mProgramCounter] = 0;'
+            print'          gRetracer.shader_map[old_ret] = gRetracer.mProgramCounter;'
+            print'          gRetracer.shader_draw_time_statistics.resize(gRetracer.mProgramCounter+1);'
+            print'     }'
+            print '    gRetracer.mProgramCounter++;'
+            print '#endif'
 
         if func.name == 'glCompileShader':
             print '    if (gRetracer.mOptions.mShaderCacheFile.size() == 0)'
@@ -940,7 +980,7 @@ class Retracer(object):
             print '    }'
 
     def retraceFunctionBody(self, func):
-        #print '    DBG_LOG("retrace %s _src = %%p\\n", _src);' % func.name
+        # print '    DBG_LOG("retrace %s _src = %%p\\n", _src);' % func.name
         print
         self.deserialize(func)
         self.assistantParams(func)
@@ -976,6 +1016,7 @@ class Retracer(object):
                 print '    {"%s", (void*)ignore},' % (func.name)
         print '};'
         print
+
 
 strings = {
     'header': r"""//This file was generated by retrace.py
@@ -1025,6 +1066,7 @@ def main():
         retracer.retraceFunctions(api.functions)
         retracer.callbackArray(api.functions)
         sys.stdout = orig_stdout
+
 
 if __name__ == '__main__':
     main()

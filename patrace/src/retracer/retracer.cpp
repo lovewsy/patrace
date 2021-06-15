@@ -1359,7 +1359,9 @@ void Retracer::Retrace()
         StartMeasuring(); // special case, otherwise triggered by eglSwapBuffers()
         delayedPerfmonInit = true;
     }
-
+#ifdef ANDROID
+    mCountShader = true;
+#endif
     // Get first packet
     if (!mFile.GetNextCall(fptr, mCurCall, src) || mFinish.load(std::memory_order_consume))
     {
@@ -1376,7 +1378,9 @@ void Retracer::Retrace()
     {
         if (t.joinable()) t.join();
     }
-
+#ifdef ANDROID
+    mCountShader = false;
+#endif
     // When we get here, we're all done
     if (mOptions.mForceOffscreen)
     {

@@ -243,6 +243,7 @@ LOCAL_SRC_FILES     := \
     helper/states.cpp \
     helper/shaderutility.cpp \
     helper/depth_dumper.cpp \
+    helper/gputimer.cpp \
     common/gl_utility.cpp \
     helper/shadermod.cpp \
     ../project/android/eglretrace/jni/NativeAPI.cpp
